@@ -7,7 +7,7 @@ add_library(order_book
 
 target_include_directories(order_book PUBLIC src/include)
 target_compile_features(order_book PUBLIC cxx_std_23)
-target_compile_options(order_book PRIVATE -wall -Wextra -Wpedantic)
+target_compile_options(order_book PRIVATE -Wall -Wextra -Wpedantic)
 
 add_executable(order_book_demo src/main.cpp)
 target_link_libraries(order_book_demo PRIVATE order_book)

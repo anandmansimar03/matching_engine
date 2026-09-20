@@ -58,8 +58,10 @@ types::QtyT OrderBook::qty_at(const types::SideEnum side, const types::PriceT pr
 types::MatchResult OrderBook::add_order(types::Order order)
 {
     const types::TimestampT timestamp_ns = now_ns();
-    
     types::MatchResult result;
+
+    // override the original quantity
+    order.original_qty = order.qty;
     
     // check for a valid quantity
     if (order.qty <= 0) [[unlikely]] {
@@ -71,10 +73,9 @@ types::MatchResult OrderBook::add_order(types::Order order)
             .original_qty = order.original_qty,
             .cancel_reason = types::CancelReasonEnum::InvalidQuantity,
         });
-    }
 
-    // override the original quantity
-    order.original_qty = order.qty;
+        return result;
+    }
 
     // check if order already exists
     if (_order_pool.find(order.order_id) != nullptr) [[unlikely]] {
