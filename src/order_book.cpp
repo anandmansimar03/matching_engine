@@ -61,6 +61,18 @@ types::MatchResult OrderBook::add_order(types::Order order)
     
     types::MatchResult result;
     
+    // check for a valid quantity
+    if (order.qty <= 0) [[unlikely]] {
+        result.cancels.emplace_back(types::Cancel{
+            .seq_num = next_seq_num(),
+            .timestamp_ns = timestamp_ns,
+            .order_id = order.order_id,
+            .qty = order.qty,
+            .original_qty = order.original_qty,
+            .cancel_reason = types::CancelReasonEnum::InvalidQuantity,
+        });
+    }
+
     // override the original quantity
     order.original_qty = order.qty;
 

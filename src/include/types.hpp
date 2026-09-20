@@ -27,8 +27,9 @@ enum class CancelReasonEnum : uint8_t {
     DuplicateOrder,
     NoLiquidity,
     OrderPoolFull,
-    UnknownOrder,
     UserRequested,
+    UnknownOrder,
+    InvalidQuantity,
 };
 
 struct Order {

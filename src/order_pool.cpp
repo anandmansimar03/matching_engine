@@ -1,7 +1,7 @@
 #include "include/order_pool.hpp"
 
-#include <cassert>
 #include <iostream>
+#include <stdexcept>
 
 namespace order_book {
 
