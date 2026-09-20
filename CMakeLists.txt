@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 project(order_book_matching_engine LANGUAGES CXX)
 
 add_library(order_book
+    src/global_order_book.cpp
     src/order_book.cpp
     src/order_pool.cpp)
 

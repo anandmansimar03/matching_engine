@@ -23,6 +23,7 @@ types::MatchResult GlobalOrderBook::cancel_order(const types::SymbolT& symbol, c
             .original_qty = 0,
             .cancel_reason = types::CancelReasonEnum::UnknownOrder,
         });
+        return result;
     }
 
     return it->second.cancel_order(order_id);
