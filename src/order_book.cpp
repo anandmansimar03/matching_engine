@@ -83,6 +83,7 @@ types::MatchResult OrderBook::add_order(types::Order order)
             .seq_num = next_seq_num(),
             .timestamp_ns = timestamp_ns,
             .order_id = order.order_id,
+            .qty = order.qty,
             .original_qty = order.original_qty,
             .cancel_reason = types::CancelReasonEnum::DuplicateOrder,
         });
@@ -108,6 +109,7 @@ types::MatchResult OrderBook::add_order(types::Order order)
                     _asks.erase(ask_it);
                 }
             }
+            break;
         }
         case types::SideEnum::Ask: {
             while (order.qty > 0 && has_bids()) {
@@ -126,6 +128,7 @@ types::MatchResult OrderBook::add_order(types::Order order)
                     _bids.erase(bid_it);
                 }
             }
+            break;
         }
     }
 
@@ -136,24 +139,28 @@ types::MatchResult OrderBook::add_order(types::Order order)
 
     switch (order.order_type) {
         case types::OrderTypeEnum::Limit: {
-            if (fill_limit_order(order)) [[unlikely]] {
+            if (!fill_limit_order(order)) [[unlikely]] {
                 result.cancels.emplace_back(types::Cancel{
                     .seq_num = next_seq_num(),
                     .timestamp_ns = timestamp_ns,
                     .order_id = order.order_id,
+                    .qty = order.qty,
                     .original_qty = order.original_qty,
                     .cancel_reason = types::CancelReasonEnum::OrderPoolFull,
                 });
             }
+            break;
         }
         case types::OrderTypeEnum::Market: {
             result.cancels.emplace_back(types::Cancel{
                 .seq_num = next_seq_num(),
                 .timestamp_ns = timestamp_ns,
                 .order_id = order.order_id,
+                .qty = order.qty,
                 .original_qty = order.original_qty,
                 .cancel_reason = types::CancelReasonEnum::NoLiquidity,
             });
+            break;
         }
     }
 
@@ -213,7 +220,7 @@ bool OrderBook::fill_limit_order(types::Order& order)
                 .head = incoming_order,
                 .tail = incoming_order,
             };
-            curr_map.emplace(incoming_order->order_id, price_level);
+            curr_map.emplace(incoming_order->price, price_level);
         }
         else {
             PriceLevel& price_level = it->second;
