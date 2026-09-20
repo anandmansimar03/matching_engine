@@ -11,7 +11,7 @@ target_compile_options(order_book PRIVATE -Wall -Wextra -Wpedantic)
 
 add_executable(order_book_demo src/main.cpp)
 target_link_libraries(order_book_demo PRIVATE order_book)
-target_compile_options(order_book_demp PRIVATE -Wall -Wextra -Wpedantic)
+target_compile_options(order_book_demo PRIVATE -Wall -Wextra -Wpedantic)
 
 get_filename_component(OB_CXX_DIR ${CMAKE_CXX_COMPILER} DIRECTORY)
 set_target_properties(order_book_demo PROPERTIES

@@ -48,6 +48,8 @@ types::Order* OrderPool::allocate(const types::Order& order)
 
     // move to next available slot
     _free_head = _free_head->next;
+
+    return order_slot;
 }
 
 void OrderPool::free(types::Order* order)
