@@ -200,6 +200,9 @@ void OrderBook::fill_against_level(
             if (price_level.head == nullptr) [[unlikely]] {
                 price_level.tail = nullptr;
             }
+            else {
+                price_level.head->prev = nullptr;
+            }
             _order_pool.free(resting_order);
         }
     }
@@ -320,6 +323,8 @@ types::MatchResult OrderBook::cancel_order(const types::OrderIdT order_id)
             .original_qty = original_qty,
             .cancel_reason = types::CancelReasonEnum::UnknownOrder,
         });
+
+        return result;
     }
 
     // de-allocate order

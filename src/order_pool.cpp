@@ -41,13 +41,13 @@ types::Order* OrderPool::allocate(const types::Order& order)
 
     // find the first available slot
     types::Order* order_slot = _free_head;
+    // move to next available slot
+    _free_head = _free_head->next;
+
     *order_slot = order;
     // sanitization
     order_slot->prev = order_slot->next = nullptr;
     _lookup_by_id[order_slot->order_id] = order_slot;
-
-    // move to next available slot
-    _free_head = _free_head->next;
 
     return order_slot;
 }
