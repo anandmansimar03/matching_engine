@@ -687,5 +687,3 @@ C++ / Market Data / Low-Latency Systems
 GitHub:
 
 https://github.com/anandmansimar03
-
-```
