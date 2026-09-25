@@ -167,6 +167,65 @@ types::MatchResult OrderBook::add_order(types::Order order)
     return result;
 }
 
+bool OrderBook::remove_order(types::Order* order)
+{
+    auto remove_from_map = [&] <typename MapT> (MapT& curr_map) -> bool {
+        auto it = curr_map.find(order->price);
+        if (it == curr_map.end()) [[unlikely]] {
+            return false;
+        }
+
+        PriceLevel& price_level = it->second;
+
+        // Update aggregate quantity.
+        price_level.total_qty -= order->qty;
+
+        // Remove from doubly-linked FIFO queue.
+        types::Order* prev_order = order->prev;
+        types::Order* next_order = order->next;
+
+        if (prev_order) {
+            prev_order->next = next_order;
+        }
+        else {
+            price_level.head = next_order;
+        }
+
+        if (next_order) {
+            next_order->prev = prev_order;
+        }
+        else {
+            price_level.tail = prev_order;
+        }
+
+        // Remove empty price level.
+        if (price_level.head == nullptr) [[unlikely]] {
+            curr_map.erase(it);
+        }
+
+        return true;
+    };
+
+    bool removed = false;
+    switch (order->side) {
+        case types::SideEnum::Ask:
+            removed = remove_from_map(_asks);
+            break;
+
+        case types::SideEnum::Bid:
+            removed = remove_from_map(_bids);
+            break;
+    }
+
+    if (!removed) [[unlikely]] {
+        return false;
+    }
+
+    _order_pool.free(order);
+
+    return true;
+}
+
 void OrderBook::fill_against_level(
     PriceLevel& price_level,
     const types::PriceT trade_price,
@@ -358,12 +417,103 @@ types::MatchResult OrderBook::modify_order(const types::OrderIdT order_id, const
     return result;
 }
 
-types::MatchResult OrderBook::cancel_order(const types::OrderIdT order_id)
+types::MatchResult OrderBook::replace_order(
+    const types::OrderIdT order_id,
+    const types::PriceT new_price,
+    const types::QtyT new_qty)
 {
     types::MatchResult result;
+
+    const types::TimestampT timestamp_ns = now_ns();
+
+    types::Order* existing_order = _order_pool.find(order_id);
+    if (existing_order == nullptr) [[unlikely]] {
+        result.cancels.emplace_back(types::Cancel{
+            .seq_num = next_seq_num(),
+            .timestamp_ns = timestamp_ns,
+            .order_id = order_id,
+            .qty = 0,
+            .original_qty = 0,
+            .cancel_reason = types::CancelReasonEnum::UnknownOrder,
+        });
+
+        return result;
+    }
+
+    if (new_qty <= 0) [[unlikely]] {
+        result.cancels.emplace_back(types::Cancel{
+            .seq_num = next_seq_num(),
+            .timestamp_ns = timestamp_ns,
+            .order_id = order_id,
+            .qty = existing_order->qty,
+            .original_qty = existing_order->original_qty,
+            .cancel_reason = types::CancelReasonEnum::InvalidQuantity,
+        });
+
+        return result;
+    }
+
+    // -------------------------------------------------------------------------
+    // Capture attributes of the old order before removing it.
+    //
+    // REPLACE preserves:
+    // - order id
+    // - side
+    // - order type
+    //
+    // REPLACE changes:
+    // - price
+    // - quantity
+    //
+    // The resulting order gets a new queue position.
+    // -------------------------------------------------------------------------
+
+    const types::SideEnum side = existing_order->side;
+    const types::OrderTypeEnum order_type = existing_order->order_type;
+
+    if (!remove_order(existing_order)) [[unlikely]] {
+        result.cancels.emplace_back(types::Cancel{
+            .seq_num = next_seq_num(),
+            .timestamp_ns = timestamp_ns,
+            .order_id = order_id,
+            .qty = 0,
+            .original_qty = 0,
+            .cancel_reason = types::CancelReasonEnum::UnknownOrder,
+        });
+
+        return result;
+    }
+
+    // -------------------------------------------------------------------------
+    // Submit replacement as a brand-new order.
+    //
+    // add_order() will:
+    // - set original_qty = new_qty
+    // - attempt matching
+    // - generate trades
+    // - place remaining quantity at the tail of the price level
+    // -------------------------------------------------------------------------
+
+    const types::Order replacement_order{
+        .order_id = order_id,
+        .side = side,
+        .order_type = order_type,
+        .price = new_price,
+        .qty = new_qty,
+    };
+
+    return add_order(replacement_order);
+}
+
+types::MatchResult OrderBook::cancel_order(
+    const types::OrderIdT order_id)
+{
+    types::MatchResult result;
+
     const types::TimestampT timestamp_ns = now_ns();
 
     types::Order* order = _order_pool.find(order_id);
+
     if (order == nullptr) [[unlikely]] {
         result.cancels.emplace_back(types::Cancel{
             .seq_num = next_seq_num(),
@@ -380,51 +530,7 @@ types::MatchResult OrderBook::cancel_order(const types::OrderIdT order_id)
     const types::QtyT remaining_qty = order->qty;
     const types::QtyT original_qty = order->original_qty;
 
-    auto cancel = [&] <typename MapT> (MapT& curr_map) -> bool {
-        auto it = curr_map.find(order->price);
-        if (it == curr_map.end()) {
-            return false;
-        }
-
-        PriceLevel& curr_price_level = it->second;
-        curr_price_level.total_qty -= order->qty;
-        types::Order* prev_order = order->prev;
-        types::Order* next_order = order->next;
-
-        if (prev_order) {
-            prev_order->next = next_order;
-        } else {
-            curr_price_level.head = next_order;
-        }
-
-        if (next_order) {
-            next_order->prev = prev_order;
-        } else {
-            curr_price_level.tail = prev_order;
-        }
-
-        // check if curr level is exhausted
-        if (curr_price_level.head == nullptr) {
-            curr_map.erase(it);
-        }
-
-        return true;
-    };
-
-    bool unlinked = true;
-    switch (order->side) {
-        case types::SideEnum::Ask: {
-            unlinked = cancel(_asks);
-            break;
-        }
-        case types::SideEnum::Bid: {
-            unlinked = cancel(_bids);
-            break;
-        }
-    }
-
-    // book and order pool disagree
-    if (!unlinked) [[unlikely]] {
+    if (!remove_order(order)) [[unlikely]] {
         result.cancels.emplace_back(types::Cancel{
             .seq_num = next_seq_num(),
             .timestamp_ns = timestamp_ns,
@@ -436,9 +542,6 @@ types::MatchResult OrderBook::cancel_order(const types::OrderIdT order_id)
 
         return result;
     }
-
-    // de-allocate order
-    _order_pool.free(order);
 
     result.cancels.emplace_back(types::Cancel{
         .seq_num = next_seq_num(),

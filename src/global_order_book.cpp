@@ -33,6 +33,30 @@ const types::SymbolT& symbol,
     return it->second.modify_order(order_id, new_qty);
 }
 
+types::MatchResult GlobalOrderBook::replace_order(
+    const types::SymbolT& symbol,
+    const types::OrderIdT order_id,
+    const types::PriceT new_price,
+    const types::QtyT new_qty)
+{
+    auto it = _books.find(symbol);
+    if (it == _books.end()) [[unlikely]] {
+        types::MatchResult result;
+        result.cancels.emplace_back(types::Cancel{
+            .seq_num = 0,
+            .timestamp_ns = 0,
+            .order_id = order_id,
+            .qty = 0,
+            .original_qty = 0,
+            .cancel_reason = types::CancelReasonEnum::UnknownOrder,
+        });
+
+        return result;
+    }
+
+    return it->second.replace_order(order_id, new_price, new_qty);
+}
+
 types::MatchResult GlobalOrderBook::cancel_order(const types::SymbolT& symbol, const types::OrderIdT order_id)
 {
     auto it = _books.find(symbol);

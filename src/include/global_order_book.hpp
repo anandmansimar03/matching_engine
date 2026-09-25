@@ -23,7 +23,15 @@ public:
     explicit GlobalOrderBook(const size_t capacity) : _book_capacity(capacity) {}
 
     types::MatchResult add_order(const types::SymbolT& symbol, types::Order order);
-    types::MatchResult modify_order(const types::SymbolT& symbol, const types::OrderIdT order_id, const types::QtyT new_qty);
+    types::MatchResult modify_order(
+        const types::SymbolT& symbol,
+        const types::OrderIdT order_id,
+        const types::QtyT new_qty);
+    types::MatchResult replace_order(
+        const types::SymbolT& symbol,
+        const types::OrderIdT order_id,
+        const types::PriceT new_price,
+        const types::QtyT new_qty);
     types::MatchResult cancel_order(const types::SymbolT& symbol, const types::OrderIdT order_id);
 
     // utils

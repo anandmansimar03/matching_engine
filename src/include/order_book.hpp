@@ -30,6 +30,10 @@ private:
         const types::TimestampT timestamp_ns,
         std::vector<types::Trade>& trades);
 
+    // Remove an existing resting order from its price-level queue
+    // and release its OrderPool slot.
+    bool remove_order(types::Order* order);
+
 public:
     // disable copy
     OrderBook(const OrderBook& order_book) = delete;
@@ -38,7 +42,13 @@ public:
     explicit OrderBook(const size_t capacity) : _order_pool(capacity) {}
 
     types::MatchResult add_order(types::Order order);
-    types::MatchResult modify_order(const types::OrderIdT order_id, const types::QtyT new_qty);
+    types::MatchResult modify_order(
+        const types::OrderIdT order_id,
+        const types::QtyT new_qty);
+    types::MatchResult replace_order(
+        const types::OrderIdT order_id,
+        const types::PriceT new_price,
+        const types::QtyT new_qty);
     types::MatchResult cancel_order(const types::OrderIdT order_id);
 
     // utils
