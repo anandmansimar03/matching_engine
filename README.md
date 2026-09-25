@@ -689,6 +689,3 @@ GitHub:
 https://github.com/anandmansimar03
 
 ```
-
-One change I'd make before committing this README: **verify the exact public method/type names in the current headers** against the `main.cpp` I gave you. The README is documentation, but the demo should compile against your current API without any assumed method names. If you want, I can also go through the repository and give you a **complete, compile-ready `main.cpp` + unit-test suite + updated README** as one coherent package.
-```
