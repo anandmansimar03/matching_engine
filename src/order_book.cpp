@@ -248,6 +248,116 @@ bool OrderBook::fill_limit_order(types::Order& order)
     return true;
 }
 
+types::MatchResult OrderBook::modify_order(const types::OrderIdT order_id, const types::QtyT new_qty)
+{
+    types::MatchResult result;
+
+    const types::TimestampT timestamp_ns = now_ns();
+
+    types::Order* order = _order_pool.find(order_id);
+    // Order does not exist.
+    if (order == nullptr) [[unlikely]] {
+        result.cancels.emplace_back(types::Cancel{
+            .seq_num = next_seq_num(),
+            .timestamp_ns = timestamp_ns,
+            .order_id = order_id,
+            .qty = 0,
+            .original_qty = 0,
+            .cancel_reason = types::CancelReasonEnum::UnknownOrder,
+        });
+
+        return result;
+    }
+
+    // Quantity must be positive.
+    if (new_qty <= 0) [[unlikely]] {
+        result.cancels.emplace_back(types::Cancel{
+            .seq_num = next_seq_num(),
+            .timestamp_ns = timestamp_ns,
+            .order_id = order_id,
+            .qty = order->qty,
+            .original_qty = order->original_qty,
+            .cancel_reason = types::CancelReasonEnum::InvalidQuantity,
+        });
+
+        return result;
+    }
+
+    // We only allow quantity reduction through MODIFY.
+    if (new_qty > order->qty) [[unlikely]] {
+        result.cancels.emplace_back(types::Cancel{
+            .seq_num = next_seq_num(),
+            .timestamp_ns = timestamp_ns,
+            .order_id = order_id,
+            .qty = order->qty,
+            .original_qty = order->original_qty,
+            .cancel_reason = types::CancelReasonEnum::InvalidQuantity,
+        });
+
+        return result;
+    }
+
+    // Nothing actually changed.
+    if (new_qty == order->qty) {
+        return result;
+    }
+
+    // Reduce the order quantity while preserving:
+    // - order id
+    // - side
+    // - price
+    // - order type
+    // - queue position
+    const types::QtyT quantity_reduced = order->qty - new_qty;
+
+    order->qty = new_qty;
+
+    // Update the aggregate quantity at this price level.
+    switch (order->side) {
+        case types::SideEnum::Bid: {
+            auto it = _bids.find(order->price);
+            if (it == _bids.end()) [[unlikely]] {
+                // Internal book corruption.
+                result.cancels.emplace_back(types::Cancel{
+                    .seq_num = next_seq_num(),
+                    .timestamp_ns = timestamp_ns,
+                    .order_id = order_id,
+                    .qty = order->qty,
+                    .original_qty = order->original_qty,
+                    .cancel_reason = types::CancelReasonEnum::UnknownOrder,
+                });
+
+                return result;
+            }
+
+            it->second.total_qty -= quantity_reduced;
+            break;
+        }
+
+        case types::SideEnum::Ask: {
+            auto it = _asks.find(order->price);
+            if (it == _asks.end()) [[unlikely]] {
+                // Internal book corruption.
+                result.cancels.emplace_back(types::Cancel{
+                    .seq_num = next_seq_num(),
+                    .timestamp_ns = timestamp_ns,
+                    .order_id = order_id,
+                    .qty = order->qty,
+                    .original_qty = order->original_qty,
+                    .cancel_reason = types::CancelReasonEnum::UnknownOrder,
+                });
+
+                return result;
+            }
+
+            it->second.total_qty -= quantity_reduced;
+            break;
+        }
+    }
+
+    return result;
+}
+
 types::MatchResult OrderBook::cancel_order(const types::OrderIdT order_id)
 {
     types::MatchResult result;

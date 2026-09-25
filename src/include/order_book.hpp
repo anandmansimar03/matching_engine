@@ -38,6 +38,7 @@ public:
     explicit OrderBook(const size_t capacity) : _order_pool(capacity) {}
 
     types::MatchResult add_order(types::Order order);
+    types::MatchResult modify_order(const types::OrderIdT order_id, const types::QtyT new_qty);
     types::MatchResult cancel_order(const types::OrderIdT order_id);
 
     // utils
