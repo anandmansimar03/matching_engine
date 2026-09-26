@@ -19,6 +19,19 @@ types::TimestampT OrderBook::now_ns()
             std::chrono::steady_clock::now().time_since_epoch()).count());
 }
 
+void OrderBook::emit_top_of_book(const types::TimestampT timestamp_ns, types::MatchResult& result)
+{
+    result.quote = types::Quote{
+        .seq_num = next_seq_num(),
+        .timestamp_ns = timestamp_ns,
+        .bid_price = best_bid(),
+        .bid_qty = has_bids() ? _bids.begin()->second.total_qty : 0,
+        .ask_price = best_ask(),
+        .ask_qty = has_asks() ? _asks.begin()->second.total_qty : 0,
+    };
+    return;
+}
+
 bool OrderBook::has_bids() const
 {
     return !_bids.empty();
@@ -73,7 +86,7 @@ types::MatchResult OrderBook::add_order(types::Order order)
             .original_qty = order.original_qty,
             .cancel_reason = types::CancelReasonEnum::InvalidQuantity,
         });
-
+        emit_top_of_book(timestamp_ns, result);
         return result;
     }
 
@@ -87,7 +100,7 @@ types::MatchResult OrderBook::add_order(types::Order order)
             .original_qty = order.original_qty,
             .cancel_reason = types::CancelReasonEnum::DuplicateOrder,
         });
-
+        emit_top_of_book(timestamp_ns, result);
         return result;
     }
 
@@ -134,6 +147,7 @@ types::MatchResult OrderBook::add_order(types::Order order)
 
     // exit if the order is executed
     if (order.qty == 0) {
+        emit_top_of_book(timestamp_ns, result);
         return result;
     }
 
@@ -163,6 +177,7 @@ types::MatchResult OrderBook::add_order(types::Order order)
             break;
         }
     }
+    emit_top_of_book(timestamp_ns, result);
 
     return result;
 }
@@ -324,7 +339,7 @@ types::MatchResult OrderBook::modify_order(const types::OrderIdT order_id, const
             .original_qty = 0,
             .cancel_reason = types::CancelReasonEnum::UnknownOrder,
         });
-
+        emit_top_of_book(timestamp_ns, result);
         return result;
     }
 
@@ -338,7 +353,7 @@ types::MatchResult OrderBook::modify_order(const types::OrderIdT order_id, const
             .original_qty = order->original_qty,
             .cancel_reason = types::CancelReasonEnum::InvalidQuantity,
         });
-
+        emit_top_of_book(timestamp_ns, result);
         return result;
     }
 
@@ -352,7 +367,7 @@ types::MatchResult OrderBook::modify_order(const types::OrderIdT order_id, const
             .original_qty = order->original_qty,
             .cancel_reason = types::CancelReasonEnum::InvalidQuantity,
         });
-
+        emit_top_of_book(timestamp_ns, result);
         return result;
     }
 
@@ -385,7 +400,7 @@ types::MatchResult OrderBook::modify_order(const types::OrderIdT order_id, const
                     .original_qty = order->original_qty,
                     .cancel_reason = types::CancelReasonEnum::UnknownOrder,
                 });
-
+                emit_top_of_book(timestamp_ns, result);
                 return result;
             }
 
@@ -405,7 +420,7 @@ types::MatchResult OrderBook::modify_order(const types::OrderIdT order_id, const
                     .original_qty = order->original_qty,
                     .cancel_reason = types::CancelReasonEnum::UnknownOrder,
                 });
-
+                emit_top_of_book(timestamp_ns, result);
                 return result;
             }
 
@@ -413,6 +428,7 @@ types::MatchResult OrderBook::modify_order(const types::OrderIdT order_id, const
             break;
         }
     }
+    emit_top_of_book(timestamp_ns, result);
 
     return result;
 }
@@ -436,7 +452,7 @@ types::MatchResult OrderBook::replace_order(
             .original_qty = 0,
             .cancel_reason = types::CancelReasonEnum::UnknownOrder,
         });
-
+        emit_top_of_book(timestamp_ns, result);
         return result;
     }
 
@@ -449,7 +465,7 @@ types::MatchResult OrderBook::replace_order(
             .original_qty = existing_order->original_qty,
             .cancel_reason = types::CancelReasonEnum::InvalidQuantity,
         });
-
+        emit_top_of_book(timestamp_ns, result);
         return result;
     }
 
@@ -480,7 +496,7 @@ types::MatchResult OrderBook::replace_order(
             .original_qty = 0,
             .cancel_reason = types::CancelReasonEnum::UnknownOrder,
         });
-
+        emit_top_of_book(timestamp_ns, result);
         return result;
     }
 
@@ -523,7 +539,7 @@ types::MatchResult OrderBook::cancel_order(
             .original_qty = 0,
             .cancel_reason = types::CancelReasonEnum::UnknownOrder,
         });
-
+        emit_top_of_book(timestamp_ns, result);
         return result;
     }
 
@@ -539,7 +555,7 @@ types::MatchResult OrderBook::cancel_order(
             .original_qty = original_qty,
             .cancel_reason = types::CancelReasonEnum::UnknownOrder,
         });
-
+        emit_top_of_book(timestamp_ns, result);
         return result;
     }
 
@@ -551,6 +567,7 @@ types::MatchResult OrderBook::cancel_order(
         .original_qty = original_qty,
         .cancel_reason = types::CancelReasonEnum::UserRequested,
     });
+    emit_top_of_book(timestamp_ns, result);
 
     return result;
 }

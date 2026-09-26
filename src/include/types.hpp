@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <optional>
 
 namespace types {
 
@@ -44,6 +45,15 @@ struct Order {
     Order* next = nullptr;
 };
 
+struct Quote {
+    SeqNumT seq_num;
+    TimestampT timestamp_ns;
+    PriceT bid_price;
+    QtyT bid_qty;
+    PriceT ask_price;
+    QtyT ask_qty;
+};
+
 struct Trade {
     SeqNumT seq_num;
     TimestampT timestamp_ns;
@@ -63,6 +73,7 @@ struct Cancel {
 };
 
 struct MatchResult {
+    std::optional<Quote> quote;
     std::vector<Trade> trades;
     std::vector<Cancel> cancels;
 };

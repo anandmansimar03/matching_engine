@@ -18,6 +18,17 @@ private:
     // localized sequencing
     types::SeqNumT _seq_num = 0;
 
+    struct TopOfBook {
+        types::PriceT bid_price;
+        types::QtyT bid_qty;
+        types::PriceT ask_price;
+        types::QtyT ask_qty;
+
+        bool operator==(const TopOfBook&) const = default;
+    };
+
+    void emit_top_of_book(const types::TimestampT timestamp_ns, types::MatchResult& result);
+
     types::SeqNumT next_seq_num();
     static types::TimestampT now_ns();
 
